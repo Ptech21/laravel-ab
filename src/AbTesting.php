@@ -2,14 +2,16 @@
 
 namespace Ben182\AbTesting;
 
+use Ben182\AbTesting\Events\ExperimentNewVisitor;
+use Ben182\AbTesting\Events\GoalCompleted;
+use Ben182\AbTesting\Exceptions\InvalidConfiguration;
+use Ben182\AbTesting\Models\Experiment;
 use Ben182\AbTesting\Models\Goal;
 use Illuminate\Support\Collection;
 use Ben182\AbTesting\Models\Experiment;
 use Ben182\AbTesting\Events\GoalCompleted;
 use Illuminate\Support\Facades\Cache;
 use Jaybizzle\CrawlerDetect\CrawlerDetect;
-use Ben182\AbTesting\Events\ExperimentNewVisitor;
-use Ben182\AbTesting\Exceptions\InvalidConfiguration;
 
 class AbTesting
 {
@@ -46,7 +48,7 @@ class AbTesting
         }
 
         foreach ($configExperiments as $configExperiment) {
-            $this->experiments[] = $experiment = Experiment::firstOrCreate([
+            $this->experiments[] = $experiment = Experiment::with('goals')->firstOrCreate([
                 'name' => $configExperiment,
             ], [
                 'visitors' => 0,
@@ -135,7 +137,11 @@ class AbTesting
     {
         $this->pageView($cacheKey);
 
-        return $this->getExperiment()->name === $name;
+        if (! $experiment = $this->getExperiment()) {
+            return false;
+        }
+
+        return $experiment->name === $name;
     }
 
     /**
@@ -148,6 +154,8 @@ class AbTesting
      */
     public function completeGoal(string $goal, string $cacheKey)
     {
+        $this->pageView();
+
         if (! $this->getExperiment()) {
             $this->pageView($cacheKey);
         }
